@@ -16,12 +16,12 @@ window.onload = function () {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Define vertex shader source (with transformation matrix)
+    // Define vertex shader source
     const vertexShaderSource = `
         attribute vec3 a_Position;
-        uniform mat4 u_ModelViewProjection;
+        uniform mat4 u_ModelMatrix;
         void main() {
-            gl_Position = u_ModelViewProjection * vec4(a_Position, 1.0);
+            gl_Position = u_ModelMatrix * vec4(a_Position, 1.0);
         }
     `;
 
@@ -60,27 +60,39 @@ window.onload = function () {
     }
     gl.useProgram(program);
 
-    // Define a triangle (or load OBJ model)
-    const vertices = new Float32Array([
-        0.0, 1, 0.0,
-        -0.5, -0.5, 0.0,
-        0.5, -0.5, 0.0
-    ]);
+    // Load and render the OBJ file
+    loadOBJ('Models/Enemys/cube.obj', (vertices, vertexIndices) => {
+        // Create buffer for vertex positions
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        // Get the attribute location and enable it
+        const aPosition = gl.getAttribLocation(program, 'a_Position');
+        gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(aPosition);
 
-    const aPosition = gl.getAttribLocation(program, 'a_Position');
-    gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(aPosition);
+        // Create buffer for indices
+        const indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(vertexIndices), gl.STATIC_DRAW);
 
-    // Create MVP matrix and pass it to the shader
-    const uMVPMatrixLocation = gl.getUniformLocation(program, 'u_ModelViewProjection');
-    const mvpMatrix = createMVPMatrix();
-    gl.uniformMatrix4fv(uMVPMatrixLocation, false, new Float32Array(mvpMatrix));
+        // Get the location of the uniform u_ModelMatrix
+        const uModelMatrix = gl.getUniformLocation(program, 'u_ModelMatrix');
 
-    // Clear and draw the object
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+        // Create the model matrix (4x4)
+        const modelMatrix = mat4.create();  // Creates an identity matrix
+
+        // Apply transformations (e.g., translation)
+        mat4.translate(modelMatrix, modelMatrix, [0.5, 0.0, 0.0]);  // Move right by 0.5 units
+        mat4.scale(modelMatrix, modelMatrix, [0.5, 0.5, 0.5]);      // Scale by half
+        // You can also apply rotation like: mat4.rotate(modelMatrix, modelMatrix, angleInRadians, [axisX, axisY, axisZ]);
+
+        // Pass the model matrix to the vertex shader
+        gl.uniformMatrix4fv(uModelMatrix, false, modelMatrix);
+
+        // Clear and draw the model
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawElements(gl.TRIANGLES, vertexIndices.length, gl.UNSIGNED_SHORT, 0);
+    });
 };
